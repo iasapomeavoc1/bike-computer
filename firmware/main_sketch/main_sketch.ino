@@ -1,10 +1,15 @@
+#include <Adafruit_GFX.h>
+#include <Adafruit_NeoMatrix.h>
+#include <Adafruit_NeoPixel.h>
+#include "led_display.h"
+
 #include <TinyGPS++.h>
 #include <SoftwareSerial.h>
 #include <Adafruit_LSM303_Accel.h>
 #include <Adafruit_LSM303DLH_Mag.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
-#include <Adafruit_NeoPixel.h>
+#include <TimedAction.h>
 
 // TODO
 // - Blinker behavior to neopixel, all inside arduino, status messages to raspi
@@ -13,16 +18,16 @@
 // - Light sensor integration with neopixel
 // - Temp sensor, pressure sensor, humidity sensor?? car proximity indicator??
 
-#define DEBUG = true
+//#define DEBUG
 
 // Pin defintion
-static const int GPS_RX_PIN = 10;
-static const int GPS_TX_PIN = 9;
-static const int PEDAL_HE_PIN = 7;
-static const int WHEEL_HE_PIN = 8;
-static const int L_BLINKER_PIN = 4;
-static const int R_BLINKER_PIN = 5;
-static const int LED_PIN = 6;
+#define GPS_RX_PIN 10
+#define GPS_TX_PIN 9
+#define PEDAL_HE_PIN 8
+#define WHEEL_HE_PIN 7 
+#define L_BLINKER_PIN 4
+#define R_BLINKER_PIN 5
+#define LED_PIN 6
 
 // GPS setup
 static const uint32_t GPSBaud = 9600;
@@ -32,11 +37,32 @@ SoftwareSerial ss(GPS_RX_PIN, GPS_TX_PIN);
 // Variables to handle hall sensor tachometer
 volatile uint32_t PEDAL_HE_COUNT;
 volatile uint32_t WHEEL_HE_COUNT;
-unsigned long PEDAL_TIME = 0;
+unsigned long WHEEL_TIME = 0;
+
+//Variables to handle blinkers
+volatile uint32_t L_PIN_PRESS_COUNT;
+volatile uint32_t R_PIN_PRESS_COUNT;
+static const int BLINKER_PRESS_COUNT=10;
+int R_BLINK_STATE = -1; //-1 is off, 1 is on.
+int L_BLINK_STATE = -1; 
 
 // NeoPixel setup
-static const int LED_COUNT = 40;
-Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoMatrix LED_MATRIX = Adafruit_NeoMatrix(5, 8, LED_PIN,
+  NEO_MATRIX_BOTTOM     + NEO_MATRIX_LEFT +
+  NEO_MATRIX_COLUMNS + NEO_MATRIX_PROGRESSIVE,
+  NEO_GRB            + NEO_KHZ800);  
+void blink_right(){
+  if(R_BLINK_STATE){
+    LED_MATRIX.drawLine(0,0,5,8,LED_RED_HIGH);
+  }
+}
+void blink_left(){
+  if(L_BLINK_STATE){
+    LED_MATRIX.drawLine(5,8,0,0,LED_RED_HIGH);
+  }
+}
+TimedAction blinkRightThread = TimedAction(100,blink_right);
+TimedAction blinkLeftThread = TimedAction(100,blink_left);
 
 // Accelerometer setup
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
@@ -44,8 +70,8 @@ Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
 // Magnetometer setup
 Adafruit_LSM303DLH_Mag_Unified mag = Adafruit_LSM303DLH_Mag_Unified(12345);
 
-void pedal_hall_toggle(){  
-  PEDAL_HE_COUNT++;
+void wheel_hall_toggle(){  
+  WHEEL_HE_COUNT++;
 }
 
 void setup()
@@ -55,11 +81,11 @@ void setup()
   pinMode(L_BLINKER_PIN,INPUT); // Change pinmode for button digital pins to input.
   pinMode(R_BLINKER_PIN,INPUT);
 
-  attachInterrupt(digitalPinToInterrupt(PEDAL_HE_PIN),pedal_hall_toggle,FALLING);
+  attachInterrupt(digitalPinToInterrupt(WHEEL_HE_PIN),wheel_hall_toggle,FALLING);
   
-  strip.begin();           // Initialize NeoPixel strip object 
-  strip.show();            // Turn OFF all pixels
-  strip.setBrightness(50); // Set brightness to about 1/5 (max = 255)
+  LED_MATRIX.begin();           // Initialize NeoPixel object 
+  LED_MATRIX.show();            // Turn OFF all pixels
+  LED_MATRIX.setBrightness(50); // Set brightness to about 1/5 (max = 255)
   
   ss.begin(GPSBaud); // Initialize GPS device
 
@@ -68,19 +94,40 @@ void setup()
   
   Serial.begin(115200);
 }
+
 void loop()
 {
   sensors_event_t event;
   accel.getEvent(&event);
   mag.getEvent(&event);
+
+  if(digitalRead(R_BLINKER_PIN)==HIGH){
+    R_PIN_PRESS_COUNT++;
+  }
+  else{R_PIN_PRESS_COUNT=0;}
+  if(digitalRead(L_BLINKER_PIN)==HIGH){
+    L_PIN_PRESS_COUNT++;
+  }
+  else{L_PIN_PRESS_COUNT=0;}
+
+  if(R_PIN_PRESS_COUNT>BLINKER_PRESS_COUNT){
+    R_BLINK_STATE = -R_BLINK_STATE;
+  }
+  if(L_PIN_PRESS_COUNT>BLINKER_PRESS_COUNT){
+    L_BLINK_STATE = -L_BLINK_STATE;
+  }
+
+  blinkLeftThread.check();
+  blinkRightThread.check();
+  //PEDAL_RPM = PEDAL_TIME
   
   noInterrupts();
-  uint32_t PEDAL_RPM = PEDAL_HE_COUNT*60000/(millis()-PEDAL_TIME);
-  PEDAL_HE_COUNT = 0;
-  PEDAL_TIME = millis();
+  uint32_t WHEEL_RPM = WHEEL_HE_COUNT*60000/(millis()-WHEEL_TIME);
+  WHEEL_HE_COUNT = 0;
+  WHEEL_TIME = millis();
   interrupts();
 
-  if(DEBUG){
+  #ifdef DEBUG
     printInt(gps.satellites.value(), gps.satellites.isValid(), 5);
     printFloat(gps.location.lat(), gps.location.isValid(), 11, 6);
     printFloat(gps.location.lng(), gps.location.isValid(), 12, 6);
@@ -114,9 +161,9 @@ void loop()
     Serial.print(event.magnetic.z);
     Serial.print("  ");
     Serial.println("uT");
-  }
+  #endif
+  
   delay(100);
-
 }
 
 // This custom version of delay() ensures that the gps object
