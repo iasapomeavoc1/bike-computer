@@ -42,7 +42,7 @@ unsigned long WHEEL_TIME = 0;
 //Variables to handle blinkers
 volatile uint32_t L_PIN_PRESS_COUNT;
 volatile uint32_t R_PIN_PRESS_COUNT;
-static const int BLINKER_PRESS_COUNT=10;
+static const int BLINKER_PRESS_COUNT=5;
 int R_BLINK_STATE = -1; //-1 is off, 1 is on.
 int L_BLINK_STATE = -1; 
 
@@ -51,18 +51,18 @@ Adafruit_NeoMatrix LED_MATRIX = Adafruit_NeoMatrix(5, 8, LED_PIN,
   NEO_MATRIX_BOTTOM     + NEO_MATRIX_LEFT +
   NEO_MATRIX_COLUMNS + NEO_MATRIX_PROGRESSIVE,
   NEO_GRB            + NEO_KHZ800);  
-void blink_right(){
+  
+void blinker(){
   if(R_BLINK_STATE){
     LED_MATRIX.drawLine(0,0,5,8,LED_RED_HIGH);
   }
-}
-void blink_left(){
-  if(L_BLINK_STATE){
-    LED_MATRIX.drawLine(5,8,0,0,LED_RED_HIGH);
+  else if(L_BLINK_STATE){
+    LED_MATRIX.drawLine(5,0,0,8,LED_RED_HIGH);
   }
+  else{LED_MATRIX.fillScreen(0);}
+  LED_MATRIX.show();
 }
-TimedAction blinkRightThread = TimedAction(100,blink_right);
-TimedAction blinkLeftThread = TimedAction(100,blink_left);
+TimedAction blinkerThread = TimedAction(100,blinker);
 
 // Accelerometer setup
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
@@ -112,13 +112,14 @@ void loop()
 
   if(R_PIN_PRESS_COUNT>BLINKER_PRESS_COUNT){
     R_BLINK_STATE = -R_BLINK_STATE;
+    R_PIN_PRESS_COUNT = 0;
   }
   if(L_PIN_PRESS_COUNT>BLINKER_PRESS_COUNT){
     L_BLINK_STATE = -L_BLINK_STATE;
+    L_PIN_PRESS_COUNT = 0;
   }
 
-  blinkLeftThread.check();
-  blinkRightThread.check();
+  blinkerThread.check();
   //PEDAL_RPM = PEDAL_TIME
   
   noInterrupts();
@@ -135,8 +136,8 @@ void loop()
     printFloat(gps.altitude.meters(), gps.altitude.isValid(), 7, 2);
   
     Serial.print("  || "); 
-    Serial.print(digitalRead(L_BLINKER_PIN));Serial.print(", ");
-    Serial.print(digitalRead(R_BLINKER_PIN));Serial.print(", ");
+    Serial.print(R_PIN_PRESS_COUNT;Serial.print(", ");
+    Serial.print(L_PIN_PRESS_COUNT);Serial.print(", ");
     Serial.print(PEDAL_TIME);Serial.print(", "); 
     Serial.print(digitalRead(WHEEL_HE_PIN));Serial.print("  || "); 
   
