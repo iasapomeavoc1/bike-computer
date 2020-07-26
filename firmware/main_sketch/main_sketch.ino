@@ -45,6 +45,9 @@ volatile uint32_t R_PIN_PRESS_COUNT;
 static const int BLINKER_PRESS_COUNT=5;
 int R_BLINK_STATE = -1; //-1 is off, 1 is on.
 int L_BLINK_STATE = -1; 
+int matrix_index = 0;
+int matrix_time = millis();
+int matrix_frametime = 300; //ms, time between frames
 
 // NeoPixel setup
 Adafruit_NeoMatrix LED_MATRIX = Adafruit_NeoMatrix(5, 8, LED_PIN,
@@ -53,14 +56,19 @@ Adafruit_NeoMatrix LED_MATRIX = Adafruit_NeoMatrix(5, 8, LED_PIN,
   NEO_GRB            + NEO_KHZ800);  
   
 void blinker(){
+  if(matrix_time-millis()>matrix_frametime){
+    matrix_index++;
+    if(matrix_index>3){matrix_index=0;}
+    matrix_time = millis();
+  }
   if(R_BLINK_STATE>0 && L_BLINK_STATE>0){
-    
+    //LED_MATRIX.drawBitmap(0,0,hazard_blinker_bmp[matrix_index],5,8,LED_RED_HIGH);
   }
   else if(R_BLINK_STATE>0){
-    LED_MATRIX.drawBitmap(0,0,right_blinker_bmp[0],5,8,LED_RED_HIGH);
+    LED_MATRIX.drawBitmap(0,0,right_blinker_bmp[matrix_index],5,8,LED_RED_HIGH);
   }
   else if(L_BLINK_STATE>0){
-    LED_MATRIX.drawLine(5,0,0,5,LED_RED_HIGH);
+    LED_MATRIX.drawBitmap(0,0,left_blinker_bmp[matrix_index],5,8,LED_RED_HIGH);
   }
   else{LED_MATRIX.fillScreen(0);}
   //LED_MATRIX.show();
