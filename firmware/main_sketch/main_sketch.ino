@@ -48,6 +48,7 @@ int L_BLINK_STATE = -1;
 int matrix_index = 0;
 int matrix_time = millis();
 int matrix_frametime = 300; //ms, time between frames
+int bitmap_length = 0;
 
 // NeoPixel setup
 Adafruit_NeoMatrix LED_MATRIX = Adafruit_NeoMatrix(5, 8, LED_PIN,
@@ -58,20 +59,22 @@ Adafruit_NeoMatrix LED_MATRIX = Adafruit_NeoMatrix(5, 8, LED_PIN,
 void blinker(){
   if(matrix_time-millis()>matrix_frametime){
     matrix_index++;
-    if(matrix_index>3){matrix_index=0;}
+    if(matrix_index>=bitmap_length){matrix_index=0;}
     matrix_time = millis();
   }
   if(R_BLINK_STATE>0 && L_BLINK_STATE>0){
-    //LED_MATRIX.drawBitmap(0,0,hazard_blinker_bmp[matrix_index],5,8,LED_RED_HIGH);
+    LED_MATRIX.drawBitmap(0,0,hazard_blinker_bmp[matrix_index],5,8,LED_RED_HIGH);
+    bitmap_length = 6;
   }
   else if(R_BLINK_STATE>0){
     LED_MATRIX.drawBitmap(0,0,right_blinker_bmp[matrix_index],5,8,LED_RED_HIGH);
+    bitmap_length = 4;
   }
   else if(L_BLINK_STATE>0){
     LED_MATRIX.drawBitmap(0,0,left_blinker_bmp[matrix_index],5,8,LED_RED_HIGH);
+    bitmap_length = 4;
   }
-  else{LED_MATRIX.fillScreen(0);}
-  //LED_MATRIX.show();
+  else{LED_MATRIX.fillScreen(0);matrix_index=0;}
 }
 TimedAction blinkerThread = TimedAction(10,blinker);
 
