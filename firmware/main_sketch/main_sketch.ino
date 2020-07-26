@@ -18,7 +18,7 @@
 // - Light sensor integration with neopixel
 // - Temp sensor, pressure sensor, humidity sensor?? car proximity indicator??
 
-//#define DEBUG
+#define DEBUG
 
 // Pin defintion
 #define GPS_RX_PIN 10
@@ -48,21 +48,24 @@ int L_BLINK_STATE = -1;
 
 // NeoPixel setup
 Adafruit_NeoMatrix LED_MATRIX = Adafruit_NeoMatrix(5, 8, LED_PIN,
-  NEO_MATRIX_BOTTOM     + NEO_MATRIX_LEFT +
+  NEO_MATRIX_TOP     + NEO_MATRIX_LEFT +
   NEO_MATRIX_COLUMNS + NEO_MATRIX_PROGRESSIVE,
   NEO_GRB            + NEO_KHZ800);  
   
 void blinker(){
-  if(R_BLINK_STATE){
-    LED_MATRIX.drawLine(0,0,5,8,LED_RED_HIGH);
+  if(R_BLINK_STATE>0 && L_BLINK_STATE>0){
+    
   }
-  else if(L_BLINK_STATE){
-    LED_MATRIX.drawLine(5,0,0,8,LED_RED_HIGH);
+  else if(R_BLINK_STATE>0){
+    LED_MATRIX.drawBitmap(0,0,right_blinker_bmp[0],5,8,LED_RED_HIGH);
+  }
+  else if(L_BLINK_STATE>0){
+    LED_MATRIX.drawLine(5,0,0,5,LED_RED_HIGH);
   }
   else{LED_MATRIX.fillScreen(0);}
-  LED_MATRIX.show();
+  //LED_MATRIX.show();
 }
-TimedAction blinkerThread = TimedAction(100,blinker);
+TimedAction blinkerThread = TimedAction(10,blinker);
 
 // Accelerometer setup
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
@@ -136,9 +139,9 @@ void loop()
     printFloat(gps.altitude.meters(), gps.altitude.isValid(), 7, 2);
   
     Serial.print("  || "); 
-    Serial.print(R_PIN_PRESS_COUNT;Serial.print(", ");
-    Serial.print(L_PIN_PRESS_COUNT);Serial.print(", ");
-    Serial.print(PEDAL_TIME);Serial.print(", "); 
+    Serial.print(R_BLINK_STATE);Serial.print(", ");
+    Serial.print(L_BLINK_STATE);Serial.print(", ");
+    //Serial.print(PEDAL_TIME);Serial.print(", "); 
     Serial.print(digitalRead(WHEEL_HE_PIN));Serial.print("  || "); 
   
     Serial.print("X: ");

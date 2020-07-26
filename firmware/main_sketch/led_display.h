@@ -34,3 +34,36 @@
 #define LED_WHITE_LOW   (LED_RED_LOW     + LED_GREEN_LOW     + LED_BLUE_LOW)
 #define LED_WHITE_MEDIUM  (LED_RED_MEDIUM  + LED_GREEN_MEDIUM  + LED_BLUE_MEDIUM)
 #define LED_WHITE_HIGH    (LED_RED_HIGH    + LED_GREEN_HIGH    + LED_BLUE_HIGH)
+
+static const uint8_t PROGMEM
+    right_blinker_bmp[][8] =
+        {
+          { //0
+            B10011001,
+            B00111100,
+            B01100110,
+            B11000011,
+            B10011001,
+          },
+          { //1
+            B00111100,
+            B01100110,
+            B11000011,
+            B10011001,
+            B00111100,
+          },          
+          { //2
+            B01100110,
+            B11000011,
+            B10011001,
+            B00111100,
+            B01100110,
+          },   
+          { //3
+            B11000011,
+            B10011001,
+            B00111100,
+            B01100110,
+            B11000011,
+          },   
+        };
