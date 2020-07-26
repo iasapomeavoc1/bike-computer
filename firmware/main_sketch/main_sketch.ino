@@ -48,7 +48,7 @@ int L_BLINK_STATE = -1;
 
 // NeoPixel setup
 Adafruit_NeoMatrix LED_MATRIX = Adafruit_NeoMatrix(5, 8, LED_PIN,
-  NEO_MATRIX_TOP     + NEO_MATRIX_LEFT +
+  NEO_MATRIX_BOTTOM     + NEO_MATRIX_LEFT +
   NEO_MATRIX_COLUMNS + NEO_MATRIX_PROGRESSIVE,
   NEO_GRB            + NEO_KHZ800);  
   
