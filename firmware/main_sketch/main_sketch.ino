@@ -168,6 +168,7 @@ void loop()
   #endif
   
   delay(100);
+  LED_MATRIX.show();
 }
 
 // This custom version of delay() ensures that the gps object
