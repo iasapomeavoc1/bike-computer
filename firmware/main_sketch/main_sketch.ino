@@ -25,8 +25,8 @@
 #define GPS_TX_PIN 9
 #define PEDAL_HE_PIN 8
 #define WHEEL_HE_PIN 7 
-#define L_BLINKER_PIN 4
-#define R_BLINKER_PIN 5
+#define L_BLINKER_PIN 5
+#define R_BLINKER_PIN 4
 #define LED_PIN 6
 
 // GPS setup
@@ -61,6 +61,7 @@ void blinker(){
     matrix_index++;
     if(matrix_index>=bitmap_length){matrix_index=0;}
     matrix_time = millis();
+    LED_MATRIX.fillScreen(0);
   }
   if(R_BLINK_STATE>0 && L_BLINK_STATE>0){
     LED_MATRIX.drawBitmap(0,0,hazard_blinker_bmp[matrix_index],5,8,LED_RED_HIGH);
@@ -68,11 +69,11 @@ void blinker(){
   }
   else if(R_BLINK_STATE>0){
     LED_MATRIX.drawBitmap(0,0,right_blinker_bmp[matrix_index],5,8,LED_RED_HIGH);
-    bitmap_length = 4;
+    bitmap_length = 2;
   }
   else if(L_BLINK_STATE>0){
     LED_MATRIX.drawBitmap(0,0,left_blinker_bmp[matrix_index],5,8,LED_RED_HIGH);
-    bitmap_length = 4;
+    bitmap_length = 2;
   }
   else{LED_MATRIX.fillScreen(0);matrix_index=0;}
 }

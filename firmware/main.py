@@ -4,7 +4,6 @@
 # logs data to logging files
 # runs GPS map display + navigation GUI
 # logs camera data to video files
-# displays mirrored rearview camera data on command?? 
 
 import osmium as osm
 import pandas as pd
