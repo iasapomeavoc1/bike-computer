@@ -12,13 +12,12 @@
 #include <TimedAction.h>
 
 // TODO
-// - Blinker behavior to neopixel, all inside arduino, status messages to raspi
-// - Mag + Accel integration, status messages to raspi, Accel integration with neopixel (brake light)
-// - Hall Effect sensor integration, functions for determining speed + cadence, status messages to raspi
-// - Light sensor integration with neopixel
-// - Temp sensor, pressure sensor, humidity sensor?? car proximity indicator??
+// - blinker status messages over serial
+// - Mag + Accel integration, status messages over serial, Accel integration with neopixel (brake light)
+// - Hall Effect sensor integration, functions for determining speed + cadence, status messages over serial
+// - GPS data status messages over serial
 
-#define DEBUG
+//#define DEBUG
 
 // Pin defintion
 #define GPS_RX_PIN 10
@@ -142,6 +141,8 @@ void loop()
   WHEEL_HE_COUNT = 0;
   WHEEL_TIME = millis();
   interrupts();
+
+  Serial.write(message);
 
   #ifdef DEBUG
     printInt(gps.satellites.value(), gps.satellites.isValid(), 5);
