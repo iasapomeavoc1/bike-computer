@@ -9,13 +9,6 @@
 #include <Adafruit_LSM303DLH_Mag.h>
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
-#include <TimedAction.h>
-
-// TODO
-// - blinker status messages over serial
-// - Mag + Accel integration, status messages over serial, Accel integration with neopixel (brake light)
-// - Hall Effect sensor integration, functions for determining speed + cadence, status messages over serial
-// - GPS data status messages over serial
 
 //#define DEBUG
 
@@ -34,18 +27,36 @@ TinyGPSPlus gps;
 SoftwareSerial ss(GPS_RX_PIN, GPS_TX_PIN);
 
 // Variables to handle hall sensor tachometer
-volatile uint32_t PEDAL_HE_COUNT;
-volatile uint32_t WHEEL_HE_COUNT;
-unsigned long WHEEL_TIME = 0;
+unsigned long WHEEL_TRIGGER = 0;
+unsigned long WHEEL_PREV_TRIGGER = 0;
+unsigned long PEDAL_TRIGGER = 0;
+unsigned long PEDAL_PREV_TRIGGER = 0;
+int new_wheel_trigger=0;
+float WHEEL_RPM;
+float PEDAL_RPM;
+volatile uint32_t PEDAL_PIN_STATE=0;
+volatile uint32_t PREV_PEDAL_PIN_STATE=0;
+
+
+void wheel_hall_trigger(){  
+  WHEEL_PREV_TRIGGER = WHEEL_TRIGGER;
+  WHEEL_TRIGGER = millis();
+  new_wheel_trigger = 1;
+}
+void pedal_hall_trigger(){  
+  PEDAL_PREV_TRIGGER = PEDAL_TRIGGER;
+  PEDAL_TRIGGER = millis();
+}
 
 //Variables to handle blinkers
-volatile uint32_t L_PIN_PRESS_COUNT;
-volatile uint32_t R_PIN_PRESS_COUNT;
-static const int BLINKER_PRESS_COUNT=5;
+int L_PIN_STATE = 0;
+int PREV_L_PIN_STATE = 0;
+int R_PIN_STATE = 0;
+int PREV_R_PIN_STATE = 0;
 int R_BLINK_STATE = -1; //-1 is off, 1 is on.
 int L_BLINK_STATE = -1; 
 int matrix_index = 0;
-int matrix_time = millis();
+unsigned long matrix_time = millis();
 int matrix_frametime = 300; //ms, time between frames
 int bitmap_length = 0;
 
@@ -55,8 +66,8 @@ Adafruit_NeoMatrix LED_MATRIX = Adafruit_NeoMatrix(5, 8, LED_PIN,
   NEO_MATRIX_COLUMNS + NEO_MATRIX_PROGRESSIVE,
   NEO_GRB            + NEO_KHZ800);  
   
-void blinker(){
-  if(matrix_time-millis()>matrix_frametime){
+void update_lights(){
+  if(millis()-matrix_time>matrix_frametime){
     matrix_index++;
     if(matrix_index>=bitmap_length){matrix_index=0;}
     matrix_time = millis();
@@ -64,7 +75,7 @@ void blinker(){
   }
   if(R_BLINK_STATE>0 && L_BLINK_STATE>0){
     LED_MATRIX.drawBitmap(0,0,hazard_blinker_bmp[matrix_index],5,8,LED_RED_HIGH);
-    bitmap_length = 6;
+    bitmap_length = 5;
   }
   else if(R_BLINK_STATE>0){
     LED_MATRIX.drawBitmap(0,0,right_blinker_bmp[matrix_index],5,8,LED_RED_HIGH);
@@ -76,17 +87,12 @@ void blinker(){
   }
   else{LED_MATRIX.fillScreen(0);matrix_index=0;}
 }
-TimedAction blinkerThread = TimedAction(10,blinker);
 
 // Accelerometer setup
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
 
 // Magnetometer setup
 Adafruit_LSM303DLH_Mag_Unified mag = Adafruit_LSM303DLH_Mag_Unified(12345);
-
-void wheel_hall_toggle(){  
-  WHEEL_HE_COUNT++;
-}
 
 void setup()
 { 
@@ -95,11 +101,11 @@ void setup()
   pinMode(L_BLINKER_PIN,INPUT); // Change pinmode for button digital pins to input.
   pinMode(R_BLINKER_PIN,INPUT);
 
-  attachInterrupt(digitalPinToInterrupt(WHEEL_HE_PIN),wheel_hall_toggle,FALLING);
+  attachInterrupt(digitalPinToInterrupt(WHEEL_HE_PIN),wheel_hall_trigger,FALLING);
   
   LED_MATRIX.begin();           // Initialize NeoPixel object 
   LED_MATRIX.show();            // Turn OFF all pixels
-  LED_MATRIX.setBrightness(50); // Set brightness to about 1/5 (max = 255)
+  LED_MATRIX.setBrightness(200); // Set brightness to about 1/5 (max = 255)
   
   ss.begin(GPSBaud); // Initialize GPS device
 
@@ -114,73 +120,49 @@ void loop()
   sensors_event_t event;
   accel.getEvent(&event);
   mag.getEvent(&event);
+  
+  PREV_L_PIN_STATE = L_PIN_STATE;
+  L_PIN_STATE=digitalRead(L_BLINKER_PIN);
+  PREV_R_PIN_STATE = R_PIN_STATE;
+  R_PIN_STATE=digitalRead(R_BLINKER_PIN);
 
-  if(digitalRead(R_BLINKER_PIN)==HIGH){
-    R_PIN_PRESS_COUNT++;
-  }
-  else{R_PIN_PRESS_COUNT=0;}
-  if(digitalRead(L_BLINKER_PIN)==HIGH){
-    L_PIN_PRESS_COUNT++;
-  }
-  else{L_PIN_PRESS_COUNT=0;}
-
-  if(R_PIN_PRESS_COUNT>BLINKER_PRESS_COUNT){
+  if(PREV_R_PIN_STATE - R_PIN_STATE==1){
     R_BLINK_STATE = -R_BLINK_STATE;
-    R_PIN_PRESS_COUNT = 0;
   }
-  if(L_PIN_PRESS_COUNT>BLINKER_PRESS_COUNT){
+  if(PREV_L_PIN_STATE - L_PIN_STATE==1){
     L_BLINK_STATE = -L_BLINK_STATE;
-    L_PIN_PRESS_COUNT = 0;
   }
 
-  blinkerThread.check();
-  //PEDAL_RPM = PEDAL_TIME
+  update_lights();
   
-  noInterrupts();
-  uint32_t WHEEL_RPM = WHEEL_HE_COUNT*60000/(millis()-WHEEL_TIME);
-  WHEEL_HE_COUNT = 0;
-  WHEEL_TIME = millis();
-  interrupts();
-
-  Serial.write(message);
-
-  #ifdef DEBUG
-    printInt(gps.satellites.value(), gps.satellites.isValid(), 5);
-    printFloat(gps.location.lat(), gps.location.isValid(), 11, 6);
-    printFloat(gps.location.lng(), gps.location.isValid(), 12, 6);
-    printDateTime(gps.date, gps.time);
-    printFloat(gps.altitude.meters(), gps.altitude.isValid(), 7, 2);
+  if(new_wheel_trigger==1){
+    WHEEL_RPM = (1.0/(WHEEL_TRIGGER - WHEEL_PREV_TRIGGER))*60000;  
+  }
   
-    Serial.print("  || "); 
-    Serial.print(R_BLINK_STATE);Serial.print(", ");
-    Serial.print(L_BLINK_STATE);Serial.print(", ");
-    //Serial.print(PEDAL_TIME);Serial.print(", "); 
-    Serial.print(digitalRead(WHEEL_HE_PIN));Serial.print("  || "); 
+  PREV_PEDAL_PIN_STATE=PEDAL_PIN_STATE;
+  PEDAL_PIN_STATE=digitalRead(PEDAL_HE_PIN);
+  if(PREV_PEDAL_PIN_STATE-PEDAL_PIN_STATE==1){
+    pedal_hall_trigger();
+    PEDAL_RPM = (1.0/(PEDAL_TRIGGER - PEDAL_PREV_TRIGGER))*60000;  
+  }
   
-    Serial.print("X: ");
-    Serial.print(event.acceleration.x);
-    Serial.print("  ");
-    Serial.print("Y: ");
-    Serial.print(event.acceleration.y);
-    Serial.print("  ");
-    Serial.print("Z: ");
-    Serial.print(event.acceleration.z);
-    Serial.print("  ");
-    Serial.print("m/s^2 || ");
-  
-    Serial.print("X: ");
-    Serial.print(event.magnetic.x);
-    Serial.print("  ");
-    Serial.print("Y: ");
-    Serial.print(event.magnetic.y);
-    Serial.print("  ");
-    Serial.print("Z: ");
-    Serial.print(event.magnetic.z);
-    Serial.print("  ");
-    Serial.println("uT");
-  #endif
-  
-  delay(100);
+  Serial.print("HEAD");Serial.print(",");
+  printInt(gps.satellites.value(), gps.satellites.isValid(), 5);Serial.print(",");
+  printFloat(gps.location.lat(), gps.location.isValid(), 11, 6);Serial.print(",");
+  printFloat(gps.location.lng(), gps.location.isValid(), 12, 6);Serial.print(",");
+  printDateTime(gps.date, gps.time);Serial.print(",");
+  printFloat(gps.altitude.meters(), gps.altitude.isValid(), 7, 2);Serial.print(",");
+  Serial.print(R_BLINK_STATE);Serial.print(",");
+  Serial.print(L_BLINK_STATE);Serial.print(",");
+  Serial.print(PEDAL_RPM);Serial.print(","); 
+  Serial.print(WHEEL_RPM);Serial.print(","); 
+  Serial.print(event.acceleration.x);Serial.print(",");
+  Serial.print(event.acceleration.y);Serial.print(",");
+  Serial.print(event.acceleration.z);Serial.print(",");
+  Serial.print(event.magnetic.x);Serial.print(",");
+  Serial.print(event.magnetic.y);Serial.print(",");
+  Serial.print(event.magnetic.z);Serial.println(",");
+   
   LED_MATRIX.show();
 }
 

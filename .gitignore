@@ -130,3 +130,5 @@ dmypy.json
 
 Icon?
 .DS_Store
+/hardware
+/data

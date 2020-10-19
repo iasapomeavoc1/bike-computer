@@ -1,0 +1,10 @@
+descartes>=1.1
+geopandas>=0.8
+matplotlib>=3.3
+networkx>=2.5
+numpy>=1.19
+pandas>=1.1
+pyproj>=2.6
+requests>=2.24
+Rtree>=0.9
+Shapely>=1.7
