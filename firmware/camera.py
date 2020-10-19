@@ -5,15 +5,13 @@ import time
 import os
 
 path = '/home/pi/bike-computer/data/'
-existing_videos = [f for f in os.listdir(path) if f.endswith('.h264') and os.path.isfile(os.path.join(path, f))]
+stored_files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
 total_memory_used = 0
-for video_file in existing_videos:
-	total_memory_used += os.path.getsize(path+video_file)
+
+for file in stored_files:
+	total_memory_used += os.path.getsize(path+file)
 	if total_memory_used>3500000000: #3.5GB
-		os.remove(path+existing_videos[0])
-
-
-
+		print("MORE THAN 3.5GB USED - DELETE FILES TO CONTINUE. EXITING...") 
 
 with picamera.PiCamera() as camera:
 	camera.resolution = (1920, 1080)
